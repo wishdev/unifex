@@ -1,0 +1,48 @@
+version: '2.1'
+executors:
+  elixir:
+    docker:
+      - image: circleci/elixir:1.8.1
+
+    working_directory: ~/app
+
+commands:
+  setup_elixir:
+    steps:
+      - run: mix local.hex --force
+      - run: mix local.rebar --force
+      - checkout
+      - run: mix deps.get
+
+jobs:
+  build:
+    executor: elixir
+    steps:
+      - setup_elixir
+      - run: mix format --check-formatted
+      - run: mix test
+
+  deploy:
+    executor: elixir
+    steps:
+      - setup_elixir
+      - run: mix help hex.config
+      - run: mix hex.publish --dry-run --yes
+
+workflows:
+  version: 2
+  build-and-deploy:
+    jobs:
+      - build:
+          filters:
+            tags:
+              only: /.*/
+
+      - deploy:
+          requires:
+            - build
+          filters:
+            tags:
+              only: /^v\d+\.\d+\.\d+$/
+            branches:
+              only: /release/
